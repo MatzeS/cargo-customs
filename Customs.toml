@@ -1,0 +1,4 @@
+[[regulation]]
+platform-targets = ["host"]
+build-targets = ["all"]
+jobs = ["build", "check", "clippy", "test"]
