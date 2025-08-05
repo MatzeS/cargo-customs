@@ -1,0 +1,26 @@
+[package]
+name = "cargo-customs"
+version = "0.1.0"
+edition = "2024"
+
+description = "Enforces regulations in large cargo workspaces."
+repository = "https://github.com/MatzeS/cargo-customs"
+license = "MIT OR Apache-2.0"
+
+keywords = ["cargo", "customs"]
+categories = ["development-tools", "embedded"]
+
+
+[dependencies]
+thiserror = "2.0.12"
+anyhow = "1.0.98"
+
+clap = { version = "4.5.42", features = ["derive"] }
+
+itertools = "0.14.0"
+
+cargo_metadata = "0.21.0"
+rustc_version = "0.4.1"
+
+serde = { version = "1.0.219", features = ["derive"] }
+toml = "0.9.4"
