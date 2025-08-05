@@ -286,14 +286,20 @@ impl RegulationCheck {
             platform_target = get_host_platform_target();
         }
 
-        let status = std::process::Command::new("cargo")
+        let mut command = std::process::Command::new("cargo");
+        command
             .arg(self.job.as_str())
             .arg(format!("--target={platform_target}"))
             .arg(build_target)
             .current_dir(path)
             .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .status()?;
+            .stderr(Stdio::inherit());
+
+        if self.job == "clippy" {
+            command.arg("--").arg("-Dwarnings");
+        }
+
+        let status = command.status()?;
 
         if !status.success() {
             anyhow::bail!("failed"); // TODO proper error logging
