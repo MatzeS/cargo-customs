@@ -16,3 +16,11 @@ fn test_customs_runs_on_single_crate() {
 
     cmd.assert().success();
 }
+
+#[test]
+fn test_customs_runs_on_sub_folder_of_single_crate() {
+    let mut cmd = Command::cargo_bin("cargo-customs").unwrap();
+    cmd.current_dir("./tests/lonely-crate/src");
+
+    cmd.assert().success();
+}
