@@ -1,0 +1,59 @@
+# Adapted from jonhoo/rust-ci-conf
+# Original source: https://github.com/jonhoo/rust-ci-conf/commit/fabb82abd53e0052c8b70ae197a80e6203ede26d
+# Original license: MIT OR Apache2.0 (https://github.com/jonhoo/rust-ci-conf/issues/6)
+
+# Edit notes:
+# - removed separate clippy job with corresponding report action
+# - remove semver, doc and hack as these checks are less useful to this binary crate
+
+# This workflow runs whenever a PR is opened or updated, or a commit is pushed to main or develop.
+# It runs several checks:
+# - customs: checks most things
+# and additionally the things not handled by customs:
+# - fmt: checks that the code is formatted according to rustfmt
+permissions:
+  contents: read
+# This configuration allows maintainers of this repo to create a branch and pull request based on
+# the new branch. Restricting the push trigger to the main branch ensures that the PR only gets
+# built once.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+# If new code is pushed to a PR branch, then cancel in progress workflows for that PR. Ensures that
+# we don't waste CI time, and returns results quicker https://github.com/jonhoo/rust-ci-conf/pull/5
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+name: check
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    name: stable / fmt
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: cargo fmt --check
+        run: cargo fmt --check
+  customs:
+    runs-on: ubuntu-latest
+    name: stable / customs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: thumbv7em-none-eabihf
+      - name: install customs from the source it is supposed to check
+        # For sure this won't bite us in the back!
+        run: cargo install --path .
+      - name: cargo customs
+        run: cargo customs
