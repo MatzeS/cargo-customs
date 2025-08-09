@@ -1,0 +1,9 @@
+[[regulation]]
+jobs = ["build", "check"]
+platform-targets = ["host", "thumbv7em-none-eabihf"]
+build-targets = ["lib", "bins"]
+
+[[regulation]]
+jobs = ["test"]
+platform-targets = ["host"]
+build-targets = ["all"]
