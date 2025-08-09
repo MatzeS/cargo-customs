@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::{path::Path, process::Stdio};
 
 use anyhow::anyhow;
@@ -169,7 +170,61 @@ pub struct Regulation {
     pub build_targets: Vec<String>,
 
     #[serde(default)]
-    pub jobs: Vec<String>,
+    pub jobs: Jobs,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum Jobs {
+    Short(Vec<String>),
+    Detailed(HashMap<String, JobParameters>),
+}
+
+impl Default for Jobs {
+    fn default() -> Self {
+        Jobs::Short(Vec::new())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JobParameters {
+    #[serde(default)]
+    args: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Job {
+    name: String,
+    args: Vec<String>,
+}
+
+impl Job {
+    fn from_short(name: String) -> Job {
+        Self {
+            name,
+            args: Vec::new(),
+        }
+    }
+
+    fn from_parameters(name: String, parameters: JobParameters) -> Job {
+        Self {
+            name,
+            args: parameters.args,
+        }
+    }
+}
+
+impl Jobs {
+    fn into_jobs(self) -> Vec<Job> {
+        match self {
+            Jobs::Short(items) => items.into_iter().map(Job::from_short).collect(),
+            Jobs::Detailed(map) => map
+                .into_iter()
+                .map(|(name, parameters)| Job::from_parameters(name, parameters))
+                .collect(),
+        }
+    }
 }
 
 pub fn load_customs(package: &Package, metadata: &Metadata) -> Option<CustomsFile> {
@@ -217,7 +272,8 @@ pub fn load_customs(package: &Package, metadata: &Metadata) -> Option<CustomsFil
                 regulation.build_targets = default.build_targets.clone();
             }
 
-            if regulation.jobs.is_empty() {
+            // TODO this cloen is rathehr inefficient
+            if regulation.jobs.clone().into_jobs().is_empty() {
                 regulation.jobs = default.jobs.clone();
             }
         }
@@ -240,10 +296,12 @@ impl Regulation {
             panic!("build-targets all can only be alone");
         }
 
+        // TODO inefficient clone
+        let jobs = self.jobs.clone().into_jobs();
         self.platform_targets
             .iter()
             .cartesian_product(build_targets.iter())
-            .cartesian_product(self.jobs.iter())
+            .cartesian_product(jobs.iter())
             .map(|((p, b), j)| RegulationCheck {
                 platform_target: p.clone(),
                 build_target: b.clone(),
@@ -257,7 +315,7 @@ impl Regulation {
 pub struct RegulationCheck {
     pub platform_target: String,
     pub build_target: String,
-    pub job: String,
+    pub job: Job,
 }
 
 impl RegulationCheck {
@@ -284,14 +342,23 @@ impl RegulationCheck {
             platform_target = get_host_platform_target();
         }
 
-        let status = std::process::Command::new("cargo")
-            .arg(self.job.as_str())
+        let mut command = std::process::Command::new("cargo");
+        command
+            .arg(self.job.name.as_str())
             .arg(format!("--target={platform_target}"))
             .arg(build_target)
             .current_dir(path)
             .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .status()?;
+            .stderr(Stdio::inherit());
+
+        if !self.job.args.is_empty() {
+            command.arg("--");
+        }
+        for arg in self.job.args.iter() {
+            command.arg(arg.as_str());
+        }
+
+        let status = command.status()?;
 
         if !status.success() {
             anyhow::bail!("failed"); // TODO proper error logging

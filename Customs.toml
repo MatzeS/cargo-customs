@@ -1,4 +1,9 @@
 [[regulation]]
 platform-targets = ["host"]
 build-targets = ["all"]
-jobs = ["build", "check", "clippy", "test"]
+
+[regulation.jobs]
+build = {}
+check = {}
+clippy = { args = ["-D", "warnings"] }
+test = {}
