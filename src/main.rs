@@ -37,11 +37,12 @@ fn parse_cli() -> CommandlineArguments {
         .next()
         .expect("exec must be invoked with at least the executable");
     if let Some(first_arg) = args.peek()
-        && first_arg == CARGO_COMMAND_NAME {
-            // cargo may invoke with the subcommand in the first place,
-            // in this case it is simply discarded.
-            let _customs = args.next();
-        }
+        && first_arg == CARGO_COMMAND_NAME
+    {
+        // cargo may invoke with the subcommand in the first place,
+        // in this case it is simply discarded.
+        let _customs = args.next();
+    }
 
     let args = std::iter::once(executable).chain(args);
 
