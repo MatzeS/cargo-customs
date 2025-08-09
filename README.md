@@ -1,4 +1,5 @@
 # cargo-customs 🛃
+[![check](https://github.com/MatzeS/cargo-customs/actions/workflows/check.yaml/badge.svg?branch=main)](https://github.com/MatzeS/cargo-customs/actions/workflows/check.yaml)
 
 `cargo-customs` is a cargo subcommand that enforces **regulations** across the crates of a Rust workspace — especially useful for large, heterogeneous workspaces targeting multiple (or embedded) architectures.
 
