@@ -106,6 +106,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
+ "cargo-husky",
  "cargo_metadata",
  "clap",
  "itertools",
@@ -114,6 +115,12 @@ dependencies = [
  "thiserror",
  "toml 0.9.5",
 ]
+
+[[package]]
+name = "cargo-husky"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b02b629252fe8ef6460461409564e2c21d0c8e77e0944f3d189ff06c4e932ad"
 
 [[package]]
 name = "cargo-platform"
