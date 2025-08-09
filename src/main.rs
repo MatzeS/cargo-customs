@@ -1,5 +1,3 @@
-#![feature(pattern)]
-
 use std::{path::Path, process::Stdio};
 
 use anyhow::anyhow;
@@ -8,7 +6,6 @@ use cargo_metadata::{MetadataCommand, Package};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::process::ExitCode;
-use std::str::pattern::Pattern;
 
 use clap::Parser;
 
@@ -36,12 +33,12 @@ fn parse_cli() -> CommandlineArguments {
     let executable = args
         .next()
         .expect("exec must be invoked with at least the executable");
-    if let Some(first_arg) = args.peek()
-        && first_arg == CARGO_COMMAND_NAME
-    {
-        // cargo may invoke with the subcommand in the first place,
-        // in this case it is simply discarded.
-        let _customs = args.next();
+    if let Some(first_arg) = args.peek() {
+        if first_arg == CARGO_COMMAND_NAME {
+            // cargo may invoke with the subcommand in the first place,
+            // in this case it is simply discarded.
+            let _customs = args.next();
+        }
     }
 
     let args = std::iter::once(executable).chain(args);
@@ -138,7 +135,7 @@ fn find_current_package<'a>(metadata: &'a Metadata, cwd: &Path) -> Option<&'a Pa
                 .parent()
                 .expect("every manifest must be in a directory");
             let package_dir = package_dir.as_str();
-            if package_dir.is_prefix_of(cwd) {
+            if cwd.starts_with(package_dir) {
                 (p, package_dir.len())
             } else {
                 (p, 0)
