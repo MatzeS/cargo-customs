@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::{path::Path, process::Stdio};
 
 use anyhow::anyhow;
@@ -12,8 +13,14 @@ use clap::Parser;
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
+    #[error("No 'Customs.toml' found for '{0}'.")]
+    CustomsMissing(PathBuf),
+
     #[error("Invalid Customs file: {0}")]
     InvalidToml(#[from] toml::de::Error),
+
+    #[error("Unexpected I/O Error: {0}")]
+    Io(#[from] std::io::Error),
 
     #[error("Unexpected error: `{0}`")]
     Unexpected(#[from] anyhow::Error),
@@ -74,22 +81,17 @@ fn run() -> Result<()> {
 
     let cwd = std::env::current_dir().map_err(|e| anyhow!(e))?;
 
-    // TODO this is not correct, when called form a subdirectory
-    let executed_from_workspace_root = cwd == metadata.workspace_root;
-    let workspace = args.workspace || executed_from_workspace_root;
-
     let current_package = find_current_package(&metadata, &cwd);
 
-    let packages_to_check: Vec<&Package> = if workspace {
-        metadata
-            .packages
-            .iter()
-            .filter(|e| metadata.workspace_members.contains(&e.id))
-            .collect()
+    let packages_to_check: Vec<&Package> = if args.workspace {
+        metadata.workspace_packages()
     } else {
         match current_package {
             Some(e) => std::iter::once(e).collect(),
-            None => return Err(anyhow::anyhow!("Failed to identify current package.").into()),
+
+            // If current_package is None, no clearly identified through cwd,
+            // then we run on the entire workspace.
+            None => metadata.workspace_packages(),
         }
     };
 
@@ -230,10 +232,29 @@ impl Jobs {
     }
 }
 
+fn read_customs_file(path: &Path) -> Result<CustomsFile> {
+    let data = std::fs::read_to_string(path)?;
+    Ok(toml::from_str(data.as_str())?)
+}
+
 fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<CustomsFile>> {
     const CUSTOMS_FILE_NAME: &str = "Customs.toml";
 
     let workspace_root = metadata.workspace_root.clone();
+
+    let crate_customs_path = package
+        .manifest_path
+        .parent()
+        .expect("manifest must be in directory")
+        .join(CUSTOMS_FILE_NAME);
+
+    if !std::fs::exists(crate_customs_path.as_std_path())? {
+        return Err(Error::CustomsMissing(
+            crate_customs_path.into_std_path_buf(),
+        ));
+    }
+
+    let mut _crate_customs = read_customs_file(crate_customs_path.as_std_path())?;
 
     // TODO must be not empty
 
