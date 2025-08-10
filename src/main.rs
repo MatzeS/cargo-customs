@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{path::Path, process::Stdio};
 
-use anyhow::anyhow;
 use cargo_metadata::Metadata;
 use cargo_metadata::{MetadataCommand, Package};
 use itertools::Itertools;
@@ -19,10 +18,13 @@ enum Error {
     #[error("Invalid Customs file: {0}")]
     InvalidToml(#[from] toml::de::Error),
 
+    #[error("Error from cargo: {0}")]
+    Cargo(String),
+
     #[error("Unexpected I/O Error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Unexpected error: `{0}`")]
+    #[error("Unexpected error: {0}")]
     Unexpected(#[from] anyhow::Error),
 }
 
@@ -71,29 +73,13 @@ fn main() -> ExitCode {
 fn run() -> Result<()> {
     let args = parse_cli();
 
-    // If customs  is invoked with workspace
-    // then run on all workspace members
+    let metadata = MetadataCommand::new().exec().map_err(|e| match e {
+        cargo_metadata::Error::CargoMetadata { stderr } => Error::Cargo(stderr),
+        _ => Error::Unexpected(e.into()),
+    })?;
+    let cwd = std::env::current_dir()?;
 
-    // otherwise run on the local package
-    // if the local package is a workspace, run on workspace
-
-    let metadata = MetadataCommand::new().exec().map_err(|e| anyhow!(e))?;
-
-    let cwd = std::env::current_dir().map_err(|e| anyhow!(e))?;
-
-    let current_package = find_current_package(&metadata, &cwd);
-
-    let packages_to_check: Vec<&Package> = if args.workspace {
-        metadata.workspace_packages()
-    } else {
-        match current_package {
-            Some(e) => std::iter::once(e).collect(),
-
-            // If current_package is None, no clearly identified through cwd,
-            // then we run on the entire workspace.
-            None => metadata.workspace_packages(),
-        }
-    };
+    let packages_to_check = packages_to_inspect(&metadata, &cwd, args.workspace);
 
     for package in packages_to_check {
         let info = load_customs(package, &metadata)?;
@@ -115,6 +101,26 @@ fn run() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn packages_to_inspect<'a>(
+    metadata: &'a Metadata,
+    current_dir: &Path,
+    workspace: bool,
+) -> Vec<&'a Package> {
+    let current_package = find_current_package(metadata, current_dir);
+
+    if workspace {
+        return metadata.workspace_packages();
+    }
+
+    match current_package {
+        Some(e) => std::iter::once(e).collect(),
+
+        // If current_package is None, no clearly identified through cwd,
+        // then we run on the entire workspace.
+        None => metadata.workspace_packages(),
+    }
 }
 
 /// Finds the package that standard cargo execution would be targeting.

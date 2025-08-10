@@ -9,7 +9,13 @@ fn test_customs_help_works_outside_of_crate() -> Result<()> {
     Ok(())
 }
 
-// Error when invoked outtside of crate
+#[test]
+fn test_customs_call_outside_of_cargo_locatin() -> Result<()> {
+    let mut cmd = Command::cargo_bin("cargo-customs")?;
+    cmd.current_dir("/tmp");
+    cmd.assert().failure();
+    Ok(())
+}
 
 #[test]
 fn test_customs_runs_on_single_crate() -> Result<()> {
