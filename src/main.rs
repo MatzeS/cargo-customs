@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::{path::Path, process::Stdio};
 
 use cargo_metadata::Metadata;
@@ -12,8 +11,8 @@ use clap::Parser;
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
-    #[error("No 'Customs.toml' found for '{0}'.")]
-    CustomsMissing(PathBuf),
+    #[error("No 'Customs.toml' found.")]
+    CustomsMissing,
 
     #[error("Invalid Customs file: {0}")]
     InvalidToml(#[from] toml::de::Error),
@@ -60,11 +59,12 @@ fn parse_cli() -> CommandlineArguments {
 }
 
 fn main() -> ExitCode {
+    env_logger::init();
     let result = run();
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("{e}");
+            log::error!("{e}");
             ExitCode::FAILURE
         }
     }
@@ -81,11 +81,24 @@ fn run() -> Result<()> {
 
     let packages_to_check = packages_to_inspect(&metadata, &cwd, args.workspace);
 
-    for package in packages_to_check {
+    for package in packages_to_check.iter() {
         let info = load_customs(package, &metadata)?;
+
         let info = match info {
             Some(e) => e,
-            None => continue,
+            None => {
+                // If customs was invoked to target a single package,
+                // then the user intent is to run a non-empty set of regulations.
+                // Hence, not finding a customs definition is probably user error.
+                if packages_to_check.len() == 1 && !args.workspace {
+                    return Err(Error::CustomsMissing);
+                } else {
+                    // If there are multiple packages, it is plausible
+                    // that not all have customs definitions, so a warning is sufficient.
+                    log::warn!("No customs file for {}", package.manifest_path);
+                    continue;
+                }
+            }
         };
 
         let directory = package
@@ -255,9 +268,7 @@ fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<Customs
         .join(CUSTOMS_FILE_NAME);
 
     if !std::fs::exists(crate_customs_path.as_std_path())? {
-        return Err(Error::CustomsMissing(
-            crate_customs_path.into_std_path_buf(),
-        ));
+        return Ok(None);
     }
 
     let mut _crate_customs = read_customs_file(crate_customs_path.as_std_path())?;
