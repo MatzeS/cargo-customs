@@ -12,6 +12,9 @@ use clap::Parser;
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
+    #[error("Invalid Customs file: {0}")]
+    InvalidToml(#[from] toml::de::Error),
+
     #[error("Unexpected error: `{0}`")]
     Unexpected(#[from] anyhow::Error),
 }
@@ -84,14 +87,14 @@ fn run() -> Result<()> {
             .filter(|e| metadata.workspace_members.contains(&e.id))
             .collect()
     } else {
-        if current_package.is_none() {
-            return Err(anyhow::anyhow!("Failed to identify current package.").into());
+        match current_package {
+            Some(e) => std::iter::once(e).collect(),
+            None => return Err(anyhow::anyhow!("Failed to identify current package.").into()),
         }
-        std::iter::once(current_package.unwrap()).collect()
     };
 
     for package in packages_to_check {
-        let info = load_customs(package, &metadata);
+        let info = load_customs(package, &metadata)?;
         let info = match info {
             Some(e) => e,
             None => continue,
@@ -105,7 +108,7 @@ fn run() -> Result<()> {
         // TODO Flatten all customs first to regulations
         // sort regulations
         for regulation in info.regulation.iter().flat_map(|e| e.expand()) {
-            regulation.check(directory.as_std_path()).unwrap();
+            regulation.check(directory.as_std_path())?;
         }
     }
 
@@ -227,7 +230,7 @@ impl Jobs {
     }
 }
 
-pub fn load_customs(package: &Package, metadata: &Metadata) -> Option<CustomsFile> {
+fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<CustomsFile>> {
     const CUSTOMS_FILE_NAME: &str = "Customs.toml";
 
     let workspace_root = metadata.workspace_root.clone();
@@ -239,6 +242,8 @@ pub fn load_customs(package: &Package, metadata: &Metadata) -> Option<CustomsFil
         .manifest_path
         .ancestors()
         .take_while(|e| e.as_std_path() != workspace_root.as_std_path())
+        // Safety: because the iterator is below the workspace root,
+        // there is at least the workspace root as a parent.
         .map(|e| e.parent().unwrap().join(CUSTOMS_FILE_NAME))
         .collect::<Vec<_>>();
 
@@ -247,13 +252,14 @@ pub fn load_customs(package: &Package, metadata: &Metadata) -> Option<CustomsFil
         .into_iter()
         .map(std::fs::read_to_string)
         .flat_map(|e| e.ok())
-        .map(|e| {
-            let info: CustomsFile = toml::from_str(&e).unwrap();
-            info
-        })
+        .map(|e| -> Result<CustomsFile> { Ok(toml::from_str(&e)?) })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
         .rev()
         .collect::<Vec<_>>();
 
+    // TODO this is not clean, considering there could be no Customs.toml in a crate.
+    // TODO further, last does not point to the correct file if there is no customs file in the crate
     let mut crate_customs = customs.last().unwrap().clone();
 
     let default = customs
@@ -281,7 +287,7 @@ pub fn load_customs(package: &Package, metadata: &Metadata) -> Option<CustomsFil
 
     // TODO print warning on empty sets
 
-    Some(crate_customs)
+    Ok(Some(crate_customs))
 }
 
 impl Regulation {
