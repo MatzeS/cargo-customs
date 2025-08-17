@@ -109,16 +109,16 @@ fn run() -> Result<()> {
             .parent()
             .expect("Manifest must be in some directory");
 
-        // TODO Flatten all customs first to regulations
-        // sort regulations
-        for regulation in info.regulation.iter().flat_map(|e| e.expand()) {
-            regulation.check(directory.as_std_path())?;
-        }
-
         if info.regulation.is_empty() {
             return Err(Error::NoRegulations(
                 package.manifest_path.as_str().to_string(),
             ));
+        }
+
+        // TODO Flatten all customs first to regulations
+        // sort regulations
+        for regulation in info.regulation.into_iter().flat_map(|e| e.expand()) {
+            regulation.check(directory.as_std_path())?;
         }
     }
 
@@ -271,7 +271,7 @@ fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<Customs
 }
 
 impl Regulation {
-    pub fn expand(&self) -> Vec<RegulationCheck> {
+    pub fn expand(self) -> Vec<RegulationCheck> {
         let build_targets = self.build_targets.clone();
         const ALL_BUILD_TARGETS_DESIGNATOR: &str = "all";
         if build_targets
@@ -282,8 +282,7 @@ impl Regulation {
             panic!("build-targets all can only be alone");
         }
 
-        // TODO inefficient clone
-        let jobs = self.jobs.clone().into_jobs();
+        let jobs = self.jobs.into_jobs();
         self.platform_targets
             .iter()
             .cartesian_product(build_targets.iter())
