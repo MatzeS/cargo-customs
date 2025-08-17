@@ -1,1 +1,4 @@
-# TODO fill
+[[regulation]]
+jobs = ["fmt", "build"]
+build-targets = ["all"]
+platform-targets = ["host"]
