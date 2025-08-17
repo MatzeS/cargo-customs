@@ -304,24 +304,33 @@ pub struct RegulationCheck {
     pub job: Job,
 }
 
+fn convert_build_target_specifier_to_cargo_argument(input: &str) -> String {
+    // lib is technically not a group of targets, but it is invoked without argument and hence handled here
+    let groups = ["lib", "bins", "examples", "tests", "benches", "all-targets"];
+
+    if groups.contains(&input) {
+        return format!("--{input}");
+    }
+
+    if input == "all" {
+        return "--all-targets".into();
+    }
+
+    let prefixes = ["bin:", "example:", "test:", "bench:"];
+    for prefix in prefixes {
+        if input.strip_prefix(prefix).is_some() {
+            return format!("--{}", input.to_string().replace(":", "="));
+        }
+    }
+
+    panic!("invalid build target {}", input)
+}
+
 impl RegulationCheck {
     pub fn check(&self, path: impl AsRef<Path>) -> anyhow::Result<()> {
-        let build_target: String = match self.build_target.as_str() {
-            "lib" => "--lib".into(),
-            "bins" => "--bins".into(),
-            "tests" => "--tests".into(),
-            // TODO bench
-            // TODO examples
-            "all" => "--all-targets".into(),
-            _ => {
-                // TODO add similarly for tests bench exampmles
-                if let Some(bin) = self.build_target.strip_prefix("bin:") {
-                    format!("--bin={bin}")
-                } else {
-                    panic!("invalid build target {}", self.build_target)
-                }
-            }
-        };
+        let build_target: String =
+            convert_build_target_specifier_to_cargo_argument(self.build_target.as_str());
+
         let mut platform_target = self.platform_target.clone();
         const HOST_PLATFORM_DESIGNATOR: &str = "host";
         if platform_target == HOST_PLATFORM_DESIGNATOR {
