@@ -127,15 +127,13 @@ pub struct CustomsFile {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
 pub struct Regulation {
     // TODO strongly type the strings
-    // TODO check rename case style
     #[serde(default)]
-    #[serde(rename = "platform-targets")]
     pub platform_targets: Vec<String>,
 
     #[serde(default)]
-    #[serde(rename = "build-targets")]
     pub build_targets: Vec<String>,
 
     #[serde(default)]
