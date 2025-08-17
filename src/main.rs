@@ -29,16 +29,17 @@ enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Clone, Parser)]
-struct CommandlineArguments {
-    // TODO run in local crate only
-    // TODO add workspace flag to run for the workspace
-    // TODO check clap options
-    #[arg(long)]
-    workspace: bool,
+#[derive(Debug, Parser)]
+struct Cli {
+    #[clap(flatten)]
+    manifest: clap_cargo::Manifest,
+    #[clap(flatten)]
+    workspace: clap_cargo::Workspace,
+    #[clap(flatten)]
+    features: clap_cargo::Features,
 }
 
-fn parse_cli() -> CommandlineArguments {
+fn parse_cli() -> Cli {
     const CARGO_COMMAND_NAME: &str = "customs";
 
     let mut args = std::env::args().peekable();
@@ -55,7 +56,7 @@ fn parse_cli() -> CommandlineArguments {
 
     let args = std::iter::once(executable).chain(args);
 
-    CommandlineArguments::parse_from(args)
+    Cli::parse_from(args)
 }
 
 fn main() -> ExitCode {
@@ -79,7 +80,7 @@ fn run() -> Result<()> {
     })?;
     let cwd = std::env::current_dir()?;
 
-    let packages_to_check = packages_to_inspect(&metadata, &cwd, args.workspace);
+    let packages_to_check = packages_to_inspect(&metadata, &cwd, args.workspace.workspace);
 
     for package in packages_to_check.iter() {
         let info = load_customs(package, &metadata)?;
@@ -90,7 +91,7 @@ fn run() -> Result<()> {
                 // If customs was invoked to target a single package,
                 // then the user intent is to run a non-empty set of regulations.
                 // Hence, not finding a customs definition is probably user error.
-                if packages_to_check.len() == 1 && !args.workspace {
+                if packages_to_check.len() == 1 && !args.workspace.workspace {
                     return Err(Error::CustomsMissing);
                 } else {
                     // If there are multiple packages, it is plausible

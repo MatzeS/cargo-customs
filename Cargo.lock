@@ -118,6 +118,7 @@ dependencies = [
  "cargo-husky",
  "cargo_metadata",
  "clap",
+ "clap-cargo",
  "env_logger",
  "itertools",
  "log",
@@ -181,6 +182,16 @@ checksum = "ed87a9d530bb41a67537289bafcac159cb3ee28460e0a4571123d2a778a6a882"
 dependencies = [
  "clap_builder",
  "clap_derive",
+]
+
+[[package]]
+name = "clap-cargo"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6affd9fc8702a94172345c11fa913aa84601cd05e187af166dcd48deff27b8d"
+dependencies = [
+ "anstyle",
+ "clap",
 ]
 
 [[package]]
