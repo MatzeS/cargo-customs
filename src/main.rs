@@ -14,6 +14,9 @@ enum Error {
     #[error("No 'Customs.toml' found.")]
     CustomsMissing,
 
+    #[error("No regulations defined in '{0}'.")]
+    NoRegulations(String),
+
     #[error("Invalid Customs file: {0}")]
     InvalidToml(#[from] toml::de::Error),
 
@@ -110,6 +113,12 @@ fn run() -> Result<()> {
         // sort regulations
         for regulation in info.regulation.iter().flat_map(|e| e.expand()) {
             regulation.check(directory.as_std_path())?;
+        }
+
+        if info.regulation.is_empty() {
+            return Err(Error::NoRegulations(
+                package.manifest_path.as_str().to_string(),
+            ));
         }
     }
 
@@ -265,8 +274,6 @@ fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<Customs
             }
         }
     }
-
-    // TODO print warning on empty sets
 
     Ok(Some(crate_customs))
 }
