@@ -201,6 +201,13 @@ impl Jobs {
                 .collect(),
         }
     }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Jobs::Short(items) => items.is_empty(),
+            Jobs::Detailed(hash_map) => hash_map.is_empty(),
+        }
+    }
 }
 
 fn read_customs_file(path: &Path) -> Result<CustomsFile> {
@@ -241,10 +248,7 @@ fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<Customs
         .rev()
         .collect::<Vec<_>>();
 
-    let default = ancestor_customs
-        .into_iter()
-        .flat_map(|e| e.default.clone()) // TODO this clone seems unnecessary
-        .last();
+    let default = ancestor_customs.into_iter().flat_map(|e| e.default).last();
 
     // fill any empty sets with defaults
     if let Some(default) = default {
@@ -257,8 +261,7 @@ fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<Customs
                 regulation.build_targets = default.build_targets.clone();
             }
 
-            // TODO this clone is rather inefficient
-            if regulation.jobs.clone().into_jobs().is_empty() {
+            if regulation.jobs.is_empty() {
                 regulation.jobs = default.jobs.clone();
             }
         }
