@@ -16,7 +16,7 @@ thiserror = "2.0.12"
 anyhow = "1.0.98"
 
 clap = { version = "4.5.42", features = ["derive"] }
-clap-cargo = "0.16.0"
+clap-cargo = { version = "0.16.0", features = ["cargo_metadata"] }
 
 itertools = "0.14.0"
 

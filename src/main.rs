@@ -78,9 +78,8 @@ fn run() -> Result<()> {
         cargo_metadata::Error::CargoMetadata { stderr } => Error::Cargo(stderr),
         _ => Error::Unexpected(e.into()),
     })?;
-    let cwd = std::env::current_dir()?;
 
-    let packages_to_check = packages_to_inspect(&metadata, &cwd, args.workspace.workspace);
+    let (packages_to_check, _) = args.workspace.partition_packages(&metadata);
 
     for package in packages_to_check.iter() {
         let info = load_customs(package, &metadata)?;
@@ -115,61 +114,6 @@ fn run() -> Result<()> {
     }
 
     Ok(())
-}
-
-fn packages_to_inspect<'a>(
-    metadata: &'a Metadata,
-    current_dir: &Path,
-    workspace: bool,
-) -> Vec<&'a Package> {
-    let current_package = find_current_package(metadata, current_dir);
-
-    if workspace {
-        return metadata.workspace_packages();
-    }
-
-    match current_package {
-        Some(e) => std::iter::once(e).collect(),
-
-        // If current_package is None, no clearly identified through cwd,
-        // then we run on the entire workspace.
-        None => metadata.workspace_packages(),
-    }
-}
-
-/// Finds the package that standard cargo execution would be targeting.
-///
-/// Essentially, this finds the next manifest up the file tree from the given cwd.
-///
-/// Instead of walking the file system, this implementation finds the corresponding manifest my identifying the manifest,
-/// which shares the longest prefix with the cwd.
-///
-/// TODO check how this works with nested cargo crates, specifically examples
-/// and if the standard cargo behavior is documented (/implemented) somewhere
-///
-/// TODO this fails if you are in an intermediate directory between workspace root and package
-fn find_current_package<'a>(metadata: &'a Metadata, cwd: &Path) -> Option<&'a Package> {
-    let cwd = cwd.to_str().expect("Failed path to string conversion");
-
-    metadata
-        .packages
-        .iter()
-        .filter(|e| metadata.workspace_members.contains(&e.id))
-        .map(|p| {
-            let package_dir = p
-                .manifest_path
-                .parent()
-                .expect("every manifest must be in a directory");
-            let package_dir = package_dir.as_str();
-            if cwd.starts_with(package_dir) {
-                (p, package_dir.len())
-            } else {
-                (p, 0)
-            }
-        })
-        .max_by(|(_, a), (_, b)| a.cmp(b))
-        .filter(|(_, e)| *e > 0)
-        .map(|(p, _)| p)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
