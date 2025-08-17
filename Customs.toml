@@ -3,6 +3,7 @@ platform-targets = ["host"]
 build-targets = ["all"]
 
 [regulation.jobs]
+fmt = {}
 build = {}
 check = {}
 clippy = { args = ["-D", "warnings"] }

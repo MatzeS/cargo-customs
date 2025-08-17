@@ -332,10 +332,18 @@ impl RegulationCheck {
         }
 
         let mut command = std::process::Command::new("cargo");
+        command.arg(self.job.name.as_str());
+
+        // Not sure how to work around this specialization.
+        // Either there needs an opt out/in to the target matrix conceptt
+        // or an abstraction over the target matrix.
+        if self.job.name != "fmt" {
+            command
+                .arg(format!("--target={platform_target}"))
+                .arg(build_target);
+        }
+
         command
-            .arg(self.job.name.as_str())
-            .arg(format!("--target={platform_target}"))
-            .arg(build_target)
             .current_dir(path)
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
