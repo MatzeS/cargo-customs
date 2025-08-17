@@ -223,36 +223,25 @@ fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<Customs
         return Ok(None);
     }
 
-    let mut _crate_customs = read_customs_file(crate_customs_path.as_std_path())?;
+    let mut crate_customs = read_customs_file(crate_customs_path.as_std_path())?;
 
-    // TODO must be not empty
-
-    // Take all Customs.toml files from the directories between the package Cargo and the workspace cargo
-    let customs = package
+    // Take all Customs.toml upwards (and including) the current crate
+    // to find the next applicable default
+    let ancestor_customs = package
         .manifest_path
         .ancestors()
         .take_while(|e| e.as_std_path() != workspace_root.as_std_path())
         // Safety: because the iterator is below the workspace root,
         // there is at least the workspace root as a parent.
         .map(|e| e.parent().unwrap().join(CUSTOMS_FILE_NAME))
-        .collect::<Vec<_>>();
-
-    // Read all applicable Customs files
-    let customs = customs
-        .into_iter()
-        .map(std::fs::read_to_string)
+        .map(|e| read_customs_file(e.as_std_path()))
         .flat_map(|e| e.ok())
-        .map(|e| -> Result<CustomsFile> { Ok(toml::from_str(&e)?) })
-        .collect::<Result<Vec<_>>>()?
+        .collect::<Vec<_>>()
         .into_iter()
         .rev()
         .collect::<Vec<_>>();
 
-    // TODO this is not clean, considering there could be no Customs.toml in a crate.
-    // TODO further, last does not point to the correct file if there is no customs file in the crate
-    let mut crate_customs = customs.last().unwrap().clone();
-
-    let default = customs
+    let default = ancestor_customs
         .into_iter()
         .flat_map(|e| e.default.clone()) // TODO this clone seems unnecessary
         .last();
@@ -268,7 +257,7 @@ fn load_customs(package: &Package, metadata: &Metadata) -> Result<Option<Customs
                 regulation.build_targets = default.build_targets.clone();
             }
 
-            // TODO this cloen is rathehr inefficient
+            // TODO this clone is rather inefficient
             if regulation.jobs.clone().into_jobs().is_empty() {
                 regulation.jobs = default.jobs.clone();
             }
