@@ -330,10 +330,10 @@ impl RegulationCheck {
         let build_target: String =
             convert_build_target_specifier_to_cargo_argument(self.build_target.as_str());
 
-        let mut platform_target = self.platform_target.clone();
+        let mut platform_target = Some(self.platform_target.as_str());
         const HOST_PLATFORM_DESIGNATOR: &str = "host";
-        if platform_target == HOST_PLATFORM_DESIGNATOR {
-            platform_target = get_host_platform_target();
+        if platform_target.is_some_and(|e| e == HOST_PLATFORM_DESIGNATOR) {
+            platform_target = None;
         }
 
         let mut command = std::process::Command::new("cargo");
@@ -343,9 +343,11 @@ impl RegulationCheck {
         // Either there needs an opt out/in to the target matrix conceptt
         // or an abstraction over the target matrix.
         if self.job.name != "fmt" {
-            command
-                .arg(format!("--target={platform_target}"))
-                .arg(build_target);
+            command.arg(build_target);
+        }
+
+        if let Some(platform_target) = platform_target {
+            command.arg(format!("--target={platform_target}"));
         }
 
         command
@@ -368,10 +370,4 @@ impl RegulationCheck {
 
         Ok(())
     }
-}
-
-fn get_host_platform_target() -> String {
-    use rustc_version::version_meta;
-    let meta = version_meta().expect("Failed to get rustc version");
-    meta.host
 }
