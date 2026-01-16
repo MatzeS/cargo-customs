@@ -1,6 +1,7 @@
 [[regulation]]
 platform-targets = ["host"]
 build-targets = ["all"]
+# feature-sets = [[]]
 
 [regulation.jobs]
 fmt = {}

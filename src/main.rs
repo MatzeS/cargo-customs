@@ -147,6 +147,13 @@ pub struct Regulation {
 
     #[serde(default)]
     pub jobs: Jobs,
+
+    #[serde(default = "default_feature_sets")]
+    pub feature_sets: Vec<Vec<String>>,
+}
+
+fn default_feature_sets() -> Vec<Vec<String>> {
+    vec![vec![]]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -283,14 +290,17 @@ impl Regulation {
         }
 
         let jobs = self.jobs.into_jobs();
+        let features = self.feature_sets.clone();
         self.platform_targets
             .iter()
             .cartesian_product(build_targets.iter())
             .cartesian_product(jobs.iter())
-            .map(|((p, b), j)| RegulationCheck {
+            .cartesian_product(features.iter())
+            .map(|(((p, b), j), f)| RegulationCheck {
                 platform_target: p.clone(),
                 build_target: b.clone(),
                 job: j.clone(),
+                features: f.clone(),
             })
             .collect()
     }
@@ -301,6 +311,7 @@ pub struct RegulationCheck {
     pub platform_target: String,
     pub build_target: String,
     pub job: Job,
+    pub features: Vec<String>,
 }
 
 fn convert_build_target_specifier_to_cargo_argument(input: &str) -> String {
@@ -348,6 +359,10 @@ impl RegulationCheck {
 
         if let Some(platform_target) = platform_target {
             command.arg(format!("--target={platform_target}"));
+        }
+
+        if !self.features.is_empty() {
+            command.arg("--features").arg(self.features.join(","));
         }
 
         command
